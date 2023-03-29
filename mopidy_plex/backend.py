@@ -6,7 +6,7 @@ import requests
 import pykka
 
 from mopidy import backend, httpclient
-from mopidy.models import  Artist, Album, Track
+from mopidy.models import  Artist, Album, Track, Playlist
 from requests.sessions import session
 
 
@@ -93,6 +93,14 @@ class PlexBackend(pykka.ThreadingActor, backend.Backend):
             album = album,
             comment=plextrack.summary
             )
+
+    @cache(CACHING_TIME)
+    def wrap_playlist(self, plexplaylist):
+        if self.plexsrv is None:
+            return None
+        '''Wrap a plex plexapi.audio.Playlist result to mopidy.model.playlist'''
+        return Playlist(uri=self.plex_uri(plexplaylist.key, 'plex:playlist'),
+                        name=plexplaylist.title)
 
     @cache(CACHING_TIME)
     def wrap_artist(self, plexartist):

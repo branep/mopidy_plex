@@ -5,11 +5,10 @@ from __future__ import unicode_literals
 import re
 
 from mopidy import backend
-from mopidy.models import Ref, Playlist
+from mopidy.models import Ref, Playlist, Track
 
 from mopidy_plex import logger
 from .cache import *
-
 
 class PlexPlaylistsProvider(backend.PlaylistsProvider):    
 
@@ -25,6 +24,19 @@ class PlexPlaylistsProvider(backend.PlaylistsProvider):
         return [Ref(uri='plex:playlist:{}'.format(playlist.ratingKey), 
                     name=playlist.title)
                 for playlist in audiolists]
+    
+    def get_items(self, uri):
+        logger.debug('playlist:%s -> get_items', uri)
+        tracks = []
+        _rx = re.compile(r'plex:playlist:(?P<plid>\d+)').match(uri)
+        if _rx is None:
+            return None
+        list_id = _rx.group('plid')
+        plex_uri = '/{:s}/items'.format(list_id)
+        plexlist = self.backend.plexsrv.playlists(plex_uri)
+        for track in plexlist:
+            tracks.append(self.backend.wrap_track(track))
+        return tracks
 
     @cache(CACHING_TIME)
     def lookup(self, uri):

@@ -21,6 +21,7 @@ class PlexLibraryProvider(backend.LibraryProvider):
         self._root = []
         self._root.append(Ref.directory(uri='plex:album', name='Albums'))
         self._root.append(Ref.directory(uri='plex:artist', name='Artists'))        
+        self._root.append(Ref.directory(uri='plex:playlist', name='Playlists'))        
 
     def _item_ref(self, item, item_type):
         if item_type == 'track':
@@ -101,6 +102,19 @@ class PlexLibraryProvider(backend.LibraryProvider):
                 ret.append(self._item_ref(item, 'track'))
             return ret
 
+        # playlists
+        if uri == 'plex:playlist':
+            logger.debug('self._browse_playlists()')
+            playlists = self.backend.playlists.as_list()
+            return playlists
+
+        if (len(parts) == 3 and parts[1] == 'playlist'):
+            logger.debug('self._browse_playlist(uri)')
+            playlist_id = parts[2]
+            plex_uri = '/playlists/{:s}'.format(playlist_id)
+            items = self.backend.plexsrv.library.fetchItem(plex_uri)
+            return [self._item_ref(item, 'track') for item in items]
+
         logger.debug('Unknown uri for browse request: %s', uri)
         return []    
 
@@ -123,6 +137,9 @@ class PlexLibraryProvider(backend.LibraryProvider):
             plex_uri = '/library/metadata/{}/children'.format(item_id)
         elif uri.startswith('plex:track:'):
             # get track
+            plex_uri = '/library/metadata/{}'.format(item_id)
+        elif uri.startswith('plex:playlist:'):
+            # get playlist
             plex_uri = '/library/metadata/{}'.format(item_id)
 
         tracks = []
@@ -198,12 +215,14 @@ class PlexLibraryProvider(backend.LibraryProvider):
         artists = []
         tracks = []
         albums = []
+        playlists = []
 
         for hit in self.backend.plexsrv.search(search_query):
             logger.debug('Got plex hit from query "%s": %s', search_query, hit)
             if isinstance(hit, plexaudio.Artist): artists.append(self.backend.wrap_artist(hit))
             elif isinstance(hit, plexaudio.Track): tracks.append(self.backend.wrap_track(hit))
             elif isinstance(hit, plexaudio.Album): albums.append(self.backend.wrap_album(hit))
+            elif isinstance(hit, plexaudio.Playlist): albums.append(self.backend.wrap_playlist(hit))
 
         logger.debug("Got results: %s, %s, %s", artists, tracks, albums)
 
@@ -211,6 +230,7 @@ class PlexLibraryProvider(backend.LibraryProvider):
             uri="plex:search",
             tracks=tracks,
             artists=artists,
-            albums=albums
+            albums=albums,
+            playlists=playlists
         )
     
